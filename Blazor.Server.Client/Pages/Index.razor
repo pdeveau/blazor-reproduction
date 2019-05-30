@@ -1,0 +1,26 @@
+﻿@page "/"
+@inject ISomeClient SomeClient
+
+<h1>Hello, world!</h1>
+
+Welcome to your new app.
+
+<SurveyPrompt Title="How is Blazor working for you?" />
+
+@if (!string.IsNullOrWhiteSpace(_result))
+{
+    <div>@_result</div>
+}
+
+
+
+@functions
+{
+
+    private string _result = null;
+
+    protected override async Task OnInitAsync()
+    {
+        _result = await SomeClient.GetDataAsync();
+    }
+}
