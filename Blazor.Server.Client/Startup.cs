@@ -17,7 +17,12 @@ namespace Blazor.Server.Client
         public void ConfigureServices(IServiceCollection services)
         {
             var policy = Policy.Handle<Exception>()
-                .WaitAndRetryAsync(4, currentRetry => TimeSpan.FromMilliseconds(currentRetry * 100));
+                .WaitAndRetryAsync(4, currentRetry =>
+                {
+                    var waitTime = currentRetry * 100;
+                    Console.WriteLine($"{currentRetry}:{waitTime}");
+                    return TimeSpan.FromMilliseconds(waitTime);
+                });
 
             services.AddSingleton<TokenWebAssemblyMessageHandler>();
             services.AddSingleton(provider =>
@@ -55,7 +60,7 @@ namespace Blazor.Server.Client
 
         public async Task<string> GetDataAsync()
         {
-            var response = await _client.GetAsync($"{_uriHelper.GetBaseUri()}/counter");
+            var response = await _client.GetAsync("https://api.github.com/404");
             return await response.Content.ReadAsStringAsync();
         }
     }
@@ -79,7 +84,6 @@ namespace Blazor.Server.Client
             }
 
             var response = await base.SendAsync(request, cancellationToken);
-            response.EnsureSuccessStatusCode();
             return response;
         }
     }
