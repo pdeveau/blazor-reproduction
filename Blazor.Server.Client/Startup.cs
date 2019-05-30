@@ -56,7 +56,7 @@ namespace Blazor.Server.Client
 
     public class TokenWebAssemblyMessageHandler : WebAssemblyHttpMessageHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             if (request == null) throw new ArgumentNullException(nameof(request));
 
@@ -67,7 +67,9 @@ namespace Blazor.Server.Client
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "N/A");
             }
 
-            return base.SendAsync(request, cancellationToken);
+            var response = await base.SendAsync(request, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            return response;
         }
     }
 }
