@@ -4,6 +4,8 @@ using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Blazor.Http;
+using Microsoft.AspNetCore.Blazor.Services;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Polly;
@@ -17,12 +19,19 @@ namespace Blazor.Server.Client
             var policy = Policy.Handle<Exception>()
                 .WaitAndRetryAsync(4, currentRetry => TimeSpan.FromMilliseconds(currentRetry * 100));
 
-            services.AddSingleton(provider => new HttpClient(provider.GetService<TokenWebAssemblyMessageHandler>()));
+            services.AddSingleton<TokenWebAssemblyMessageHandler>();
+            services.AddSingleton(provider =>
+            {
+                var uriHelper = provider.GetRequiredService<IUriHelper>();
 
-            services.AddHttpClient<ISomeClient, SomeClient>(httpClient =>
-                {
-                    httpClient.BaseAddress = new Uri("https://nope.org");
-                })
+                Console.WriteLine(uriHelper.GetBaseUri());
+
+                return new HttpClient(provider.GetService<TokenWebAssemblyMessageHandler>())
+                    {BaseAddress = new Uri(WebAssemblyUriHelper.Instance.GetBaseUri()) };
+            });
+            services.AddSingleton<IHttpClientFactory>(provider => new HttpClientFactory(provider));
+
+            services.AddHttpClient<ISomeClient, SomeClient>()
                 .AddPolicyHandler(policy.AsAsyncPolicy<HttpResponseMessage>());
         }
 
@@ -36,15 +45,17 @@ namespace Blazor.Server.Client
     public class SomeClient : ISomeClient
     {
         private readonly HttpClient _client;
+        private readonly IUriHelper _uriHelper;
 
-        public SomeClient(HttpClient client)
+        public SomeClient(HttpClient client, IUriHelper uriHelper)
         {
             _client = client;
+            _uriHelper = uriHelper; //not sure why I'd need urihelper here, injected client should have a baseuri already.
         }
 
         public async Task<string> GetDataAsync()
         {
-            var response = await _client.GetAsync("/");
+            var response = await _client.GetAsync($"{_uriHelper.GetBaseUri()}/counter");
             return await response.Content.ReadAsStringAsync();
         }
     }
@@ -70,6 +81,21 @@ namespace Blazor.Server.Client
             var response = await base.SendAsync(request, cancellationToken);
             response.EnsureSuccessStatusCode();
             return response;
+        }
+    }
+
+    public class HttpClientFactory : IHttpClientFactory
+    {
+        private readonly IServiceProvider _provider;
+
+        public HttpClientFactory(IServiceProvider provider)
+        {
+            _provider = provider;
+        }
+
+        public HttpClient CreateClient(string name)
+        {
+            return _provider.GetService<HttpClient>();
         }
     }
 }
